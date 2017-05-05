@@ -1,0 +1,74 @@
+apiVersion: "extensions/v1beta1"
+kind: "Deployment"
+metadata:
+  name: "stubby4j"
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: "stubby4j"
+    spec:
+      containers:
+      - env:
+        - name: REPO_PATH
+          value: /stub-repo/stubs/
+        - name: STUB_PORT
+          value: "8882"
+        - name: ADMIN_PORT
+          value: "8889"
+        image: quay.io/plange/stubby4j
+        imagePullPolicy: Always
+        name: stubby4j
+        volumeMounts:
+        - mountPath: /stub-repo
+          name: git-repo
+      - command:
+        - /git-sync
+        - --branch=master
+        - --wait=60
+        env:
+        - name: GIT_SYNC_REPO
+          value: git@git.example.com:stubs.git
+        - name: GIT_SYNC_DEST
+          value: stubs
+        - name: GIT_SYNC_SSH
+          value: "true"
+        image: gcr.io/google_containers/git-sync:v2.0.4
+        imagePullPolicy: IfNotPresent
+        name: git-sync
+        securityContext:
+          runAsUser: 0
+        terminationMessagePath: /dev/termination-log
+        volumeMounts:
+        - mountPath: /git
+          name: git-repo
+        - mountPath: /.ssh
+          name: sshkey
+        - mountPath: /etc/git-secret/
+          name: sshkey
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - emptyDir: {}
+        name: git-repo
+      - name: sshkey
+        secret:
+          defaultMode: 256
+          secretName: stubby-ssh
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: stubby4j
+  name: stubby4j
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 8882
+  selector:
+    app: stubby4j

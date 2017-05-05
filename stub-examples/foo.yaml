@@ -1,0 +1,8 @@
+- request:
+    method: GET
+    url: /foo
+  response:
+    status: 200
+    headers:
+      X-Foo: bar
+    body: bar
